@@ -1,37 +1,54 @@
 import React from 'react';
-import { Modal, Form, Input, notification } from 'antd';
+import { Modal, Form, Input, notification, Typography } from 'antd';
+import axios from 'axios';
+
+const { Title } = Typography;
 
 const UserModal = ({ visible, onClose, refresh }) => {
   const [form] = Form.useForm();
+  const token = localStorage.getItem('token');
 
   const handleSubmit = async (values) => {
     try {
-      // Simulación de creación de usuario (mock)
-      const newUser = {
-        id: Date.now(),
-        fullName: values.fullName,
+      await axios.post('http://localhost:3000/users', {
+        name: values.fullName,
         email: values.email,
-        isActive: true,
-      };
-
-      // Guardar en almacenamiento local temporal o pasar a estado superior
-      const existingUsers = JSON.parse(localStorage.getItem('users') || '[]');
-      localStorage.setItem('users', JSON.stringify([...existingUsers, newUser]));
-
-      notification.success({ message: 'Usuario creado (modo demo)' });
-      refresh(); // sigue funcionando igual cuando tengas la API
+        password: values.password,
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+  
+      notification.success({ message: 'Usuario creado correctamente' });
+      refresh();
       onClose();
+      form.resetFields();
     } catch (error) {
-      notification.error({ message: 'Error al crear usuario (demo)' });
+      const msg = error.response?.data?.message;
+  
+      if (msg === 'El correo ya está registrado') {
+        form.setFields([
+          {
+            name: 'email',
+            errors: ['Este correo ya está en uso'],
+          },
+        ]);
+      } else {
+        notification.error({
+          message: 'Error al crear usuario',
+          description: msg || 'Error desconocido',
+        });
+      }
     }
   };
 
   return (
     <Modal
-      title="Nuevo Usuario"
+      title={<Title level={4} style={{ marginBottom: 0 }}>Nuevo Usuario</Title>}
       open={visible}
       onCancel={onClose}
       onOk={() => form.submit()}
+      okText="Crear"
+      cancelText="Cancelar"
     >
       <Form form={form} onFinish={handleSubmit} layout="vertical">
         <Form.Item
@@ -39,15 +56,15 @@ const UserModal = ({ visible, onClose, refresh }) => {
           label="Nombre Completo"
           rules={[{ required: true }]}
         >
-          <Input />
+          <Input placeholder="Nombre completo" />
         </Form.Item>
 
         <Form.Item
           name="email"
-          label="Email"
+          label="Correo"
           rules={[{ required: true, type: 'email' }]}
         >
-          <Input />
+          <Input placeholder="correo@ejemplo.com" />
         </Form.Item>
 
         <Form.Item
@@ -55,7 +72,7 @@ const UserModal = ({ visible, onClose, refresh }) => {
           label="Contraseña"
           rules={[{ required: true, min: 6 }]}
         >
-          <Input.Password />
+          <Input.Password placeholder="••••••" />
         </Form.Item>
       </Form>
     </Modal>

@@ -1,122 +1,121 @@
-import React, { useEffect, useState } from 'react';
-import { Table, Switch, Button, Space, notification, Card, Typography, Empty } from 'antd';
-import { PlusOutlined, UserOutlined } from '@ant-design/icons';
-// import api from '../../api';
-import UserModal from './UsersModal';
+import { useEffect, useState } from 'react';
+import { Table, Tag, Button, Typography, message, Space, Switch } from 'antd';
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import UserModal from './UsersModal'; 
+import { LogOut, Plus } from 'lucide-react';
 
-const { Title, Text } = Typography;
+const { Title } = Typography;
 
 const Users = () => {
   const [users, setUsers] = useState([]);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-
-  const mockUsers = [
-    { id: 1, fullName: 'Juan Pérez', email: 'juan@example.com', isActive: true },
-    { id: 2, fullName: 'María García', email: 'maria@example.com', isActive: false },
-  ];
+  const [showModal, setShowModal] = useState(false);
+  const navigate = useNavigate();
+  const token = localStorage.getItem('token');
 
   const fetchUsers = async () => {
     try {
-      // const response = await api.get('/users');
-      // setUsers(response.data);
-      setUsers(mockUsers);
-    } catch (error) {
-      notification.error({ message: 'Error al cargar usuarios' });
+      const res = await axios.get('http://localhost:3000/users', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setUsers(res.data);
+    } catch {
+      message.error('No se pudieron obtener los usuarios');
     }
   };
 
-  useEffect(() => {
-    fetchUsers();
-  }, []);
-
-  const toggleActive = async (userId) => {
+  const toggleUser = async (id) => {
     try {
-      // await api.patch(`/users/${userId}/toggle-active`);
-      setUsers(prev =>
-        prev.map(user =>
-          user.id === userId ? { ...user, isActive: !user.isActive } : user
+      await axios.patch(`http://localhost:3000/users/${id}/toggle`, null, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+  
+      setUsers((prevUsers) =>
+        prevUsers.map((user) =>
+          user.id === id ? { ...user, isActive: !user.isActive } : user
         )
       );
-    } catch (error) {
-      notification.error({ message: 'Error al cambiar estado' });
+    } catch {
+      message.error('Error al actualizar usuario');
     }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    navigate('/login');
   };
 
   const columns = [
     {
       title: 'Nombre',
-      dataIndex: 'fullName',
-      key: 'fullName',
-      render: (text) => <Text strong>{text}</Text>,
+      dataIndex: 'name',
+      key: 'name',
     },
     {
-      title: 'Email',
+      title: 'Correo',
       dataIndex: 'email',
       key: 'email',
-      render: (text) => <Text type="secondary">{text}</Text>,
+    },
+    {
+      title: 'Fecha Creación',
+      dataIndex: 'dateCreated',
+      key: 'dateCreated',
+      render: (text) => new Date(text).toLocaleString(),
     },
     {
       title: 'Estado',
-      key: 'isActive',
-      align: 'center',
+      dataIndex: 'isActive',
+      key: 'estado',
+      render: (active) => (
+        <Tag color={active ? 'green' : 'red'}>
+          {active ? 'Activo' : 'Inactivo'}
+        </Tag>
+      ),
+    },
+    {
+      title: 'Cambiar estado',
+      key: 'switch',
       render: (_, record) => (
         <Switch
           checked={record.isActive}
-          onChange={() => toggleActive(record.id)}
-          checkedChildren="Activo"
-          unCheckedChildren="Inactivo"
+          onChange={() => toggleUser(record.id)}
+          style={{ backgroundColor: record.isActive ? '#52c41a' : '#d9d9d9' }}
         />
       ),
     },
   ];
 
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
   return (
-    <div style={{ padding: '40px 16px', heigth: 'auto', display: 'flex', justifyContent: 'center' }}>
-      <Card
-        style={{
-          width: '100%',
-          maxWidth: '1200px',
-          borderRadius: 16,
-          boxShadow: '0 8px 24px rgba(0, 0, 0, 0.08)',
-        }}
-        bodyStyle={{ padding: 32 }}
-      >
-        <Space direction="vertical" style={{ width: '100%' }} size="large">
-          <Space
-            style={{ width: '100%', justifyContent: 'space-between', alignItems: 'center' }}
-          >
-            <Title level={3} style={{ margin: 0 }}>
-              <UserOutlined style={{ marginRight: 8 }} />
-              Gestión de Usuarios
-            </Title>
+    <div style={{ maxWidth: 1000, margin: '40px auto', padding: '0 20px' }}>
+      <Space style={{ width: '100%', justifyContent: 'space-between', marginBottom: 20 }}>
+        <Title level={2} style={{color: 'white'}}>Usuarios Registrados</Title>
+        <Button onClick={handleLogout} danger style={{ marginLeft: 'auto' }}>
+          <LogOut style={{ marginRight: 4 }} />
+        </Button>
+      </Space>
 
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={() => setIsModalOpen(true)}
-              size="middle"
-              style={{ borderRadius: 6 }}
-            >
-              Nuevo Usuario
-            </Button>
-          </Space>
+      <Button type="primary" onClick={() => setShowModal(true)} style={{ marginBottom: 20, backgroundColor: '#3C99C7' }}>
+        <Plus style={{ margin: 2 }} />
+        Crear usuario
+      </Button>
 
-          <Table
-            columns={columns}
-            dataSource={users}
-            rowKey="id"
-            bordered
-            pagination={{ pageSize: 5, showSizeChanger: false }}
-            locale={{
-              emptyText: <Empty description="No hay usuarios disponibles" />,
-            }}
-          />
-        </Space>
-      </Card>
+      <Table
+        columns={columns}
+        dataSource={users}
+        rowKey="id"
+        pagination={{ pageSize: 5 }}
+        bordered={true}
+        style={{ backgroundColor: '#fff', borderRadius: 8, boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)' }}
+      />
 
       <UserModal
-        visible={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        visible={showModal}
+        onClose={() => setShowModal(false)}
         refresh={fetchUsers}
       />
     </div>
